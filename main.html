@@ -5,212 +5,126 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hacker Terminal — For Raya</title>
   <style>
-    /* Reset */
     *{box-sizing:border-box;margin:0;padding:0}
-    html,body{height:100%}
-    body{
-      background:#000;
-      font-family: "Courier New", Courier, monospace;
-      overflow:hidden;
-      color:#00ff6a;
-    }
+    html,body{height:100%;background:#000;color:#00ff6a;font-family: "Courier New", Courier, monospace;}
 
-    /* Canvas (matrix rain) */
-    canvas#rain{
-      position:fixed;left:0;top:0;width:100%;height:100%;z-index:0;opacity:0.25;
-    }
+    /* Canvas background with glitch */
+    canvas#rain{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;opacity:0.2;}
 
-    /* Terminal container */
+    /* Terminal box */
     .terminal{
       position:relative;
       z-index:1;
-      width:90%;
-      max-width:980px;
-      height:70vh;
-      margin:4vh auto 0 auto;
-      background:rgba(0,0,0,0.6);
-      border:1px solid rgba(0,255,106,0.12);
+      width:92%;max-width:980px;height:72vh;
+      margin:5vh auto;
+      background:rgba(0,0,0,0.7);
+      border:1px solid rgba(0,255,106,0.15);
+      border-radius:10px;
       padding:22px;
-      border-radius:6px;
-      box-shadow:0 8px 40px rgba(0,255,106,0.04), inset 0 1px 0 rgba(255,255,255,0.02);
       overflow:auto;
+      box-shadow:0 0 25px rgba(0,255,106,0.25), inset 0 0 12px rgba(0,255,106,0.1);
+      backdrop-filter: blur(2px);
+      animation: glow 2.5s infinite alternate;
     }
 
-    /* Top bar like a terminal window */
-    .term-top{
-      display:flex;gap:8px;align-items:center;margin-bottom:12px;
+    @keyframes glow {
+      from { box-shadow:0 0 15px rgba(0,255,106,0.1), inset 0 0 8px rgba(0,255,106,0.05); }
+      to   { box-shadow:0 0 35px rgba(0,255,106,0.35), inset 0 0 18px rgba(0,255,106,0.15); }
     }
-    .dot{width:12px;height:12px;border-radius:50%;background:#222;border:2px solid rgba(0,0,0,.6)}
-    .dot.red{background:#ff5f57}
-    .dot.yellow{background:#ffbd2e}
-    .dot.green{background:#28c840}
-    .title{margin-left:auto;color:rgba(0,255,106,0.8);font-size:13px}
 
-    /* Terminal content lines */
-    .lines{font-size:18px;line-height:1.6;white-space:pre-wrap}
+    .term-top{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+    .dot{width:12px;height:12px;border-radius:50%;}
+    .red{background:#ff5f57}.yellow{background:#ffbd2e}.green{background:#28c840}
+    .title{margin-left:auto;font-size:13px;color:rgba(0,255,106,0.8)}
+
+    .lines{font-size:18px;line-height:1.7;white-space:pre-wrap;text-shadow:0 0 8px rgba(0,255,106,0.4)}
     .prompt{color:#00ff6a}
 
-    /* blinking cursor */
-    .cursor{
-      display:inline-block;
-      width:10px;
-      height:20px;
-      background:#00ff6a;
-      margin-left:6px;
-      vertical-align:bottom;
-      animation:blink 1s steps(2,start) infinite;
-    }
+    .cursor{display:inline-block;width:10px;height:20px;background:#00ff6a;margin-left:6px;vertical-align:bottom;animation:blink 1s steps(2,start) infinite}
     @keyframes blink{50%{opacity:0}}
 
-    /* small footer */
-    .footer{position:fixed;left:12px;bottom:10px;color:rgba(0,255,106,0.3);font-size:12px}
-
-    /* responsive */
-    @media (max-width:560px){
-      .terminal{height:75vh;padding:14px}
-      .lines{font-size:16px}
+    /* Glitch animation for fancy effect */
+    @keyframes glitch {
+      0% {text-shadow: 2px 2px #ff00ff, -2px -2px #00ffff;}
+      25% {text-shadow: -2px -2px #ff00ff, 2px 2px #00ffff;}
+      50% {text-shadow: 2px -2px #ff00ff, -2px 2px #00ffff;}
+      75% {text-shadow: -2px 2px #ff00ff, 2px -2px #00ffff;}
+      100% {text-shadow:none;}
     }
+    .glitch{animation:glitch 2s infinite alternate}
+
+    .footer{position:fixed;bottom:8px;left:12px;font-size:12px;color:rgba(0,255,106,0.3)}
   </style>
 </head>
 <body>
   <canvas id="rain"></canvas>
 
-  <div class="terminal" role="region" aria-label="Hacker terminal">
+  <div class="terminal">
     <div class="term-top">
       <div class="dot red"></div>
       <div class="dot yellow"></div>
       <div class="dot green"></div>
-      <div class="title">root@raya:~/<span style="opacity:.6">terminal</span></div>
+      <div class="title">root@raya:~/love_terminal</div>
     </div>
-
-    <div class="lines" id="lines" aria-live="polite"></div>
-    <div style="height:12px"></div>
+    <div class="lines" id="lines"></div>
   </div>
 
-  <div class="footer">Press <kbd>Space</kbd> to skip typing, <kbd>R</kbd> to replay.</div>
+  <div class="footer">[Space] skip typing • [R] replay • [❤] For Raya</div>
 
   <script>
-    /*******************
-     * Matrix rain
-     *******************/
-    const canvas = document.getElementById('rain');
-    const ctx = canvas.getContext('2d');
-    let w = canvas.width = innerWidth;
-    let h = canvas.height = innerHeight;
-
-    const cols = Math.floor(w / 18);
-    const ypos = Array(cols).fill(0);
-
-    function matrixStep(){
-      ctx.fillStyle = 'rgba(0,0,0,0.06)';
-      ctx.fillRect(0,0,w,h);
-      ctx.fillStyle = '#00ff6a';
-      ctx.font = '14px monospace';
+    /* Matrix Rain */
+    const canvas=document.getElementById('rain');const ctx=canvas.getContext('2d');
+    let w=canvas.width=innerWidth,h=canvas.height=innerHeight;
+    const cols=Math.floor(w/18);const ypos=Array(cols).fill(0);
+    function matrix(){
+      ctx.fillStyle='rgba(0,0,0,0.08)';ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='#00ff6a';ctx.font='14px monospace';
       for(let i=0;i<ypos.length;i++){
-        const text = String.fromCharCode(0x30A0 + Math.random()*96);
-        const x = i * 18;
-        ctx.fillText(text, x, ypos[i]*18);
-        if(ypos[i]*18 > h && Math.random() > 0.975) ypos[i]=0;
+        const text=String.fromCharCode(0x30A0+Math.random()*96);
+        ctx.fillText(text,i*18,ypos[i]*18);
+        if(ypos[i]*18>h&&Math.random()>0.975)ypos[i]=0;
         ypos[i]++;
       }
     }
-    let matrixInterval = setInterval(matrixStep, 45);
-    addEventListener('resize', ()=>{ w=canvas.width=innerWidth; h=canvas.height=innerHeight; });
+    setInterval(matrix,45);
+    addEventListener('resize',()=>{w=canvas.width=innerWidth;h=canvas.height=innerHeight;});
 
-    /*******************
-     * Terminal typing
-     *******************/
-    const linesEl = document.getElementById('lines');
-    const messages = [];
-    // prepare the three lines repeated 10 times each
-    for(let i=0;i<10;i++) messages.push('sorry raya');
-    messages.push(''); // blank spacer
-    for(let i=0;i<10;i++) messages.push('I love u raya');
-    messages.push('');
-    for(let i=0;i<10;i++) messages.push('I miss u');
+    /* Typing animation */
+    const linesEl=document.getElementById('lines');
+    const msgs=[];
+    for(let i=0;i<10;i++)msgs.push('sorry raya');
+    msgs.push('');
+    for(let i=0;i<10;i++)msgs.push('I love u raya');
+    msgs.push('');
+    for(let i=0;i<10;i++)msgs.push('I miss u');
 
-    let currentLine = 0;
-    let skip = false;
+    let idx=0,skip=false;
 
-    function typeLine(text, cb){
-      const prompt = '<span class="prompt">root@raya:~$</span> ';
-      const container = document.createElement('div');
-      container.innerHTML = prompt;
-      linesEl.appendChild(container);
+    function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-      let i = 0;
-      // randomize typing speed a little
+    function typeLine(txt,cb){
+      const prompt='<span class="prompt">root@raya:~$</span> ';
+      const div=document.createElement('div');
+      div.innerHTML=prompt;linesEl.appendChild(div);
+      let i=0;
       function step(){
-        if(skip){
-          // If user pressed skip, render rest immediately
-          container.innerHTML = prompt + escapeHtml(text) + '<span class="cursor"></span>';
-          cb();
-          return;
-        }
-        if(i <= text.length){
-          container.innerHTML = prompt + escapeHtml(text.slice(0,i)) + '<span class="cursor"></span>';
-          i++;
-          // variable speed
-          const t = 20 + Math.random()*60;
-          setTimeout(step,t);
-          linesEl.scrollTop = linesEl.scrollHeight;
-        } else {
-          // finished typing this line
-          container.innerHTML = prompt + escapeHtml(text);
-          // small delay before callback
-          setTimeout(cb, 140 + Math.random()*350);
-        }
+        if(skip){div.innerHTML=prompt+escapeHtml(txt)+' <span class="cursor"></span>';cb();return;}
+        if(i<=txt.length){div.innerHTML=prompt+escapeHtml(txt.slice(0,i))+' <span class="cursor"></span>';i++;setTimeout(step,30+Math.random()*50);linesEl.scrollTop=linesEl.scrollHeight;}
+        else{div.innerHTML=prompt+'<span class="glitch">'+escapeHtml(txt)+'</span>';setTimeout(cb,250);}
       }
       step();
     }
 
-    function escapeHtml(s){
-      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    function run(){linesEl.innerHTML='';idx=0;skip=false;next();}
+    function next(){
+      if(idx>=msgs.length){const end=document.createElement('div');end.innerHTML='<span class="prompt">root@raya:~$</span> <em>-- transmission complete ❤ --</em>';linesEl.appendChild(end);return;}
+      const t=msgs[idx++];
+      if(t===''){linesEl.appendChild(document.createElement('br'));setTimeout(next,150);}else{typeLine(t,next);}
     }
 
-    function runSequence(){
-      linesEl.innerHTML = '';
-      currentLine = 0;
-      skip = false;
-      playNext();
-    }
-
-    function playNext(){
-      if(currentLine >= messages.length){
-        // finished — show a friendly footer line
-        const done = document.createElement('div');
-        done.innerHTML = '<span class="prompt">root@raya:~$</span> <em style="opacity:.8">— transmission complete —</em>';
-        linesEl.appendChild(done);
-        return;
-      }
-      const text = messages[currentLine++];
-      // if empty string, just add a blank line quickly
-      if(text === ''){
-        const br = document.createElement('div');
-        br.innerHTML = '';
-        linesEl.appendChild(br);
-        setTimeout(playNext, 180);
-      } else {
-        typeLine(text, playNext);
-      }
-    }
-
-    // keyboard controls
-    addEventListener('keydown', (e)=>{
-      if(e.code === 'Space'){
-        skip = true;
-      }
-      if(e.key.toLowerCase() === 'r'){
-        runSequence();
-      }
-    });
-
-    // autoplay once
-    runSequence();
-
-    // small accessibility: allow clicking terminal to toggle skip
-    document.querySelector('.terminal').addEventListener('click', ()=>{ skip = true; });
-
+    addEventListener('keydown',e=>{if(e.code==='Space')skip=true;if(e.key.toLowerCase()==='r')run();});
+    document.querySelector('.terminal').addEventListener('click',()=>{skip=true;});
+    run();
   </script>
 </body>
 </html>
